@@ -4,7 +4,7 @@
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
 
-The workspace now includes a React/Vite web app artifact, **Monitor Giełdowy**, at the root preview path (`/`). It is a Polish stock watchlist dashboard based on the uploaded `attached_assets/stock-monitor_1776070769581.html`, with local watchlist persistence, locally stored Finnhub/Groq API keys, cached stock data, AI analysis tabs, news, investment score panels, loading/error/empty states, and quick ticker chips.
+The workspace includes a React/Vite web app artifact, **Monitor Giełdowy**, at the root preview path (`/`). It is a Polish stock watchlist dashboard based on the uploaded `attached_assets/stock-monitor_1776070769581.html`, with local watchlist persistence, locally stored Finnhub/Groq API keys, cached stock data, AI analysis tabs, news, investment score panels, loading/error/empty states, editable favorite ticker chips, CSV export, a share purchase calculator, and support for Polish ticker formats such as `SNT.PL` and `PKN.WA`.
 
 ## Stack
 

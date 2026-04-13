@@ -15,7 +15,6 @@ export function SetupModal({ isOpen, onClose, onSave, initialKeys }: SetupModalP
   const [finnhub, setFinnhub] = useState(initialKeys.finnhub);
   const [groq, setGroq] = useState(initialKeys.groq);
 
-  // Sync state when modal opens
   React.useEffect(() => {
     if (isOpen) {
       setFinnhub(initialKeys.finnhub);
@@ -25,12 +24,11 @@ export function SetupModal({ isOpen, onClose, onSave, initialKeys }: SetupModalP
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[480px] bg-card border-border/50">
+      <DialogContent className="sm:max-w-[520px] bg-card border-border/50">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold tracking-tight">Konfiguracja kluczy API</DialogTitle>
+          <DialogTitle className="text-lg font-semibold tracking-tight">Konfiguracja źródeł danych</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground leading-relaxed mt-1">
-            Oba klucze są <strong className="text-foreground">bezpłatne</strong>. Potrzebna jest tylko rejestracja.<br/>
-            Klucze zapisywane są lokalnie w przeglądarce.
+            Klucze zapisywane są lokalnie w przeglądarce. Polskie tickery w formacie <strong className="text-foreground">SNT.PL</strong> lub <strong className="text-foreground">PKN.WA</strong> są obsługiwane automatycznie; dla danych GPW aplikacja próbuje użyć Finnhub, a następnie publicznego źródła Stooq bez klucza.
           </DialogDescription>
         </DialogHeader>
 
@@ -47,7 +45,7 @@ export function SetupModal({ isOpen, onClose, onSave, initialKeys }: SetupModalP
               className="font-mono text-sm bg-muted/50 border-border/50 focus-visible:ring-primary/50"
             />
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Pobierz bezpłatnie: <a href="https://finnhub.io/register" target="_blank" rel="noreferrer" className="text-primary hover:underline">finnhub.io/register</a> → Dashboard → API Key
+              Dla spółek USA i części danych GPW: <a href="https://finnhub.io/register" target="_blank" rel="noreferrer" className="text-primary hover:underline">finnhub.io/register</a> → Dashboard → API Key
             </p>
           </div>
 
@@ -64,8 +62,12 @@ export function SetupModal({ isOpen, onClose, onSave, initialKeys }: SetupModalP
               type="password"
             />
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Pobierz bezpłatnie: <a href="https://console.groq.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">console.groq.com</a> → API Keys → Create
+              Dla zakładki Analiza AI: <a href="https://console.groq.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">console.groq.com</a> → API Keys → Create
             </p>
+          </div>
+
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[12px] leading-relaxed text-emerald-300">
+            Przykład polskiej spółki: wpisz SNT.PL. Jeśli Finnhub jej nie rozpozna, aplikacja spróbuje pobrać notowania przez Stooq.
           </div>
         </div>
 

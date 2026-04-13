@@ -22,6 +22,20 @@ export const saveWatchlist = (watchlist: string[]) => {
   localStorage.setItem('wl', JSON.stringify(watchlist));
 };
 
+export const getFavorites = (): string[] => {
+  try {
+    const saved = localStorage.getItem('favorite_tickers');
+    if (saved) return JSON.parse(saved);
+    return ['SNT.PL', 'PKN.WA', 'CDR.WA', 'AAPL', 'MSFT', 'NVDA'];
+  } catch (e) {
+    return ['SNT.PL', 'PKN.WA', 'CDR.WA', 'AAPL', 'MSFT', 'NVDA'];
+  }
+};
+
+export const saveFavorites = (favorites: string[]) => {
+  localStorage.setItem('favorite_tickers', JSON.stringify(favorites));
+};
+
 export const getCache = (): Record<string, any> => {
   try {
     return JSON.parse(localStorage.getItem('cache') || '{}');
