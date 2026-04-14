@@ -6,6 +6,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 The workspace includes a React/Vite web app artifact, **Monitor Giełdowy**, at the root preview path (`/`). It is a Polish stock watchlist dashboard based on the uploaded `attached_assets/stock-monitor_1776070769581.html`, with local watchlist persistence, locally stored Finnhub/Groq API keys, cached stock data, AI analysis tabs, news, investment score panels, loading/error/empty states, editable favorite ticker chips, CSV export, a share purchase calculator, and support for Polish ticker formats such as `SNT.PL` and `PKN.WA`.
 
+Recent additions include a GPW search suggestion endpoint backed by a curated Polish stock list, Stooq quote normalization for `.PL`/`.WA` tickers, per-company API fetch timestamps, a TradingView 5-day chart tab on each stock card, and a separate **Analizy CFD** mode for currencies, commodities, crypto and indices. The CFD mode uses a TradingView scanner proxy for 1h technical values including RSI, EMA, HMA and recommendation scores, displays a 5-day TradingView chart, generates long/short probability summaries, includes historical signal filtering, and provides a CFD profit calculator.
+
 ## Stack
 
 - **Monorepo tool**: pnpm workspaces

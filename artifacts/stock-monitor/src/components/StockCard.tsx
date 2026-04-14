@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Trash2, RefreshCw, Loader2, ArrowUpRight, ArrowDownRight, Minus, Download, Calculator } from "lucide-react";
+import { Trash2, RefreshCw, Loader2, ArrowUpRight, ArrowDownRight, Minus, Download, Calculator, LineChart } from "lucide-react";
 import { useStockData, StockData } from "@/hooks/useStockData";
 import { clearCacheForTicker } from "@/lib/storage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TradingViewMiniChart } from "@/components/TradingViewMiniChart";
 
 interface StockCardProps {
   ticker: string;
@@ -43,6 +44,11 @@ function downloadCsv(filename: string, rows: unknown[][]) {
 function formatMoney(value: number, currency: string) {
   const symbol = currency === 'PLN' ? 'zł' : currency === 'USD' ? '$' : currency;
   return currency === 'USD' ? `$${value.toFixed(2)}` : `${value.toFixed(2)} ${symbol}`;
+}
+
+function formatFetchedAt(value?: string) {
+  if (!value) return 'brak danych';
+  return new Intl.DateTimeFormat('pl-PL', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
 }
 
 export function StockCard({ ticker, keys, onRemove, onDataUpdate }: StockCardProps) {
@@ -159,6 +165,9 @@ export function StockCard({ ticker, keys, onRemove, onDataUpdate }: StockCardPro
               {isPos ? <ArrowUpRight className="h-3 w-3" /> : isNeg ? <ArrowDownRight className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
               {isPos ? '+' : ''}{chg.toFixed(2)}%
             </div>
+            <div className="text-[10px] text-muted-foreground mt-1">
+              Pobrano: {formatFetchedAt(data.fetched_at)}
+            </div>
           </div>
           <div className="flex flex-col gap-1.5 border-l border-border/50 pl-4 ml-1">
             <button onClick={() => refresh()} disabled={loading} className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted transition-colors disabled:opacity-50">
@@ -211,6 +220,9 @@ export function StockCard({ ticker, keys, onRemove, onDataUpdate }: StockCardPro
           </TabsTrigger>
           <TabsTrigger value="calculator" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-[13px] font-medium transition-none">
             Kalkulator
+          </TabsTrigger>
+          <TabsTrigger value="chart" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-[13px] font-medium transition-none">
+            Dane na wykresie
           </TabsTrigger>
         </TabsList>
 
@@ -385,6 +397,42 @@ export function StockCard({ ticker, keys, onRemove, onDataUpdate }: StockCardPro
                     <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Cena break-even z prowizją</div>
                     <div className="text-lg font-bold">{formatMoney(breakevenPrice, currencyCode)} / akcję</div>
                   </div>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="chart" className="m-0 focus-visible:outline-none">
+            <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_0.8fr] gap-5">
+              <TradingViewMiniChart symbol={data.ticker} interval="D" range="5D" height={360} title="Skrócony wykres z ostatnich 5 dni" />
+              <div className="rounded-lg border border-border/40 bg-muted/20 p-4 flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <LineChart className="h-4 w-4 text-primary" />
+                  <div>
+                    <div className="text-sm font-semibold">Dane wykresowe</div>
+                    <div className="text-[12px] text-muted-foreground">Widok TradingView dla zakresu 5D</div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-lg bg-background/50 border border-border/40 p-3">
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Open</div>
+                    <div className="font-bold">{data.open?.toFixed(2) || '—'}</div>
+                  </div>
+                  <div className="rounded-lg bg-background/50 border border-border/40 p-3">
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">High</div>
+                    <div className="font-bold">{data.high?.toFixed(2) || '—'}</div>
+                  </div>
+                  <div className="rounded-lg bg-background/50 border border-border/40 p-3">
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Low</div>
+                    <div className="font-bold">{data.low?.toFixed(2) || '—'}</div>
+                  </div>
+                  <div className="rounded-lg bg-background/50 border border-border/40 p-3">
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Close</div>
+                    <div className="font-bold">{data.price?.toFixed(2) || '—'}</div>
+                  </div>
+                </div>
+                <div className="text-[12px] text-muted-foreground leading-relaxed border-t border-border/40 pt-3">
+                  Dla polskich tickerów aplikacja mapuje formaty <span className="text-foreground font-medium">SNT.PL</span> i <span className="text-foreground font-medium">SNT.WA</span> na symbol GPW w TradingView. Notowanie bazowe pobierane jest przez Finnhub albo Stooq, a wykres pełni rolę szybkiego podglądu technicznego.
                 </div>
               </div>
             </div>

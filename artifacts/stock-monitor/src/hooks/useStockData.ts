@@ -41,6 +41,7 @@ export interface StockData {
   price_target?: number;
   invest_reason?: string;
   data_source?: string;
+  fetched_at?: string;
 }
 
 const normalizeTicker = (ticker: string) => ticker.trim().toUpperCase().replace(/\s+/g, '');
@@ -69,7 +70,8 @@ const getFallbackData = (t: string): StockData => ({
   analysts_sell: 0,
   invest_reason: 'Skonfiguruj klucze API, aby uzyskać pełną analizę i newsy.',
   price_target: 0,
-  data_source: 'Tryb lokalny'
+  data_source: 'Tryb lokalny',
+  fetched_at: new Date().toISOString()
 });
 
 const getAnalysisFallback = (data: StockData, message: string): Partial<StockData> => ({
@@ -140,7 +142,8 @@ async function fetchStooqQuote(ticker: string): Promise<StockData> {
     beta: null,
     volume_m: volume ? volume / 1e6 : 0,
     news: [],
-    data_source: 'Stooq'
+    data_source: 'Stooq',
+    fetched_at: new Date().toISOString()
   };
 }
 
@@ -179,7 +182,8 @@ async function fetchFinnhubStockData(ticker: string, key: string): Promise<Stock
       time: n.datetime,
       summary: n.summary
     })),
-    data_source: symbol !== normalizeTicker(ticker) ? `Finnhub (${symbol})` : 'Finnhub'
+    data_source: symbol !== normalizeTicker(ticker) ? `Finnhub (${symbol})` : 'Finnhub',
+    fetched_at: new Date().toISOString()
   };
 }
 
@@ -259,7 +263,7 @@ export function useStockData(ticker: string, keys: { finnhub: string, groq: stri
         aiData = getAnalysisFallback(stockData, 'Dane rynkowe zostały pobrane, ale analiza AI wymaga klucza Groq.');
       }
 
-      const merged = { ...stockData, ...aiData };
+      const merged = { ...stockData, ...aiData, fetched_at: stockData.fetched_at || new Date().toISOString() };
       const newCache = getCache();
       newCache[normalizedTicker] = merged;
       saveCache(newCache);
