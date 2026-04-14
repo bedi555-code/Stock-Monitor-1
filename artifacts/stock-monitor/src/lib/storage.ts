@@ -36,6 +36,20 @@ export const saveFavorites = (favorites: string[]) => {
   localStorage.setItem('favorite_tickers', JSON.stringify(favorites));
 };
 
+export const getCfdFavorites = (): string[] => {
+  try {
+    const saved = localStorage.getItem('cfd_favorite_tickers');
+    if (saved) return JSON.parse(saved);
+    return ['EURUSD', 'XAUUSD', 'USOIL', 'NASDAQ', 'DAX', 'SPX', 'BTCUSD'];
+  } catch (e) {
+    return ['EURUSD', 'XAUUSD', 'USOIL', 'NASDAQ', 'DAX', 'SPX', 'BTCUSD'];
+  }
+};
+
+export const saveCfdFavorites = (favorites: string[]) => {
+  localStorage.setItem('cfd_favorite_tickers', JSON.stringify(favorites));
+};
+
 export const getCache = (): Record<string, any> => {
   try {
     return JSON.parse(localStorage.getItem('cache') || '{}');

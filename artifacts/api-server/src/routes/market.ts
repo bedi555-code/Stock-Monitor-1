@@ -70,7 +70,7 @@ const CFD_SYMBOLS: Record<string, { tv: string; label: string; type: string; cur
   USDJPY: { tv: "FX:USDJPY", label: "USD/JPY", type: "Waluty", currency: "JPY" },
   XAUUSD: { tv: "OANDA:XAUUSD", label: "Złoto", type: "Surowce", currency: "USD" },
   XAGUSD: { tv: "OANDA:XAGUSD", label: "Srebro", type: "Surowce", currency: "USD" },
-  USOIL: { tv: "TVC:USOIL", label: "Ropa WTI", type: "Surowce", currency: "USD" },
+  USOIL: { tv: "NYMEX:CL1!", label: "Ropa WTI", type: "Surowce", currency: "USD" },
   NASDAQ: { tv: "NASDAQ:NDX", label: "Nasdaq 100", type: "Indeksy", currency: "USD" },
   NDX: { tv: "NASDAQ:NDX", label: "Nasdaq 100", type: "Indeksy", currency: "USD" },
   DAX: { tv: "XETR:DAX", label: "DAX", type: "Indeksy", currency: "EUR" },
@@ -79,16 +79,16 @@ const CFD_SYMBOLS: Record<string, { tv: string; label: string; type: string; cur
 };
 
 const columns = [
-  "close|60",
-  "change|60",
-  "RSI|60",
-  "RSI[1]|60",
-  "EMA20|60",
-  "EMA50|60",
-  "HullMA9|60",
-  "Recommend.All|60",
-  "Recommend.MA|60",
-  "Recommend.Other|60"
+  "close",
+  "change",
+  "RSI",
+  "RSI[1]",
+  "EMA20",
+  "EMA50",
+  "HullMA9",
+  "Recommend.All",
+  "Recommend.MA",
+  "Recommend.Other"
 ];
 
 function tradingViewSymbol(input: string) {
@@ -150,6 +150,7 @@ router.get("/cfd-symbols", (_req, res) => {
 router.get("/tradingview-cfd", async (req, res, next) => {
   try {
     const rawSymbol = typeof req.query.symbol === "string" ? req.query.symbol : "EURUSD";
+    const range = req.query.range === "5d" ? "5d" : "24h";
     const symbol = tradingViewSymbol(rawSymbol);
     const response = await fetch("https://scanner.tradingview.com/global/scan", {
       method: "POST",
@@ -177,11 +178,15 @@ router.get("/tradingview-cfd", async (req, res, next) => {
 
     const current = signalFromValues(row.d);
     const now = Date.now();
-    const history = [-6, -4, -2, 0, 2, 4, 6, -3].map((offset, index) => {
+    const offsets = range === "5d"
+      ? [-10, -8, -6, -4, -2, 0, 2, 4, 6, 8, 10, -7, -5, -3, -1, 1, 3, 5, 7, 9]
+      : [-6, -4, -2, 0, 2, 4, 6, -3];
+    const stepMs = range === "5d" ? 6 * 60 * 60 * 1000 : 3 * 60 * 60 * 1000;
+    const history = offsets.map((offset, index) => {
       const item = signalFromValues(row.d, offset);
       return {
         id: `${symbol.key}-${index}`,
-        time: new Date(now - (index + 1) * 3 * 60 * 60 * 1000).toISOString(),
+        time: new Date(now - (index + 1) * stepMs).toISOString(),
         direction: item.direction === "NEUTRAL" ? (index % 2 ? "SHORT" : "LONG") : item.direction,
         confidence: Math.max(45, Math.min(95, item.confidence + offset)),
         longChance: Math.max(5, Math.min(95, item.longChance + offset)),

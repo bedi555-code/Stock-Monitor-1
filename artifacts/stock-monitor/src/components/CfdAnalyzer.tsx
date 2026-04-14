@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Activity, ArrowDownRight, ArrowUpRight, Calculator, Filter, Loader2, RefreshCw, TrendingUp } from "lucide-react";
+import { Activity, ArrowDownRight, ArrowUpRight, Calculator, Check, Download, Edit3, Filter, Loader2, RefreshCw, Star, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TradingViewMiniChart } from "@/components/TradingViewMiniChart";
+import { getCfdFavorites, saveCfdFavorites } from "@/lib/storage";
 
 interface CfdSignal {
   id: string;
@@ -34,7 +35,9 @@ interface CfdData {
   history: CfdSignal[];
 }
 
-const presets = ["EURUSD", "XAUUSD", "USOIL", "NASDAQ", "DAX", "SPX", "BTCUSD"];
+function normalizeSymbol(value: string) {
+  return value.trim().toUpperCase().replace(/\s+/g, "");
+}
 
 function formatDate(value?: string) {
   if (!value) return "—";
@@ -47,6 +50,24 @@ function directionClass(direction: string) {
   return "bg-amber-500/15 text-amber-300 border-amber-500/30";
 }
 
+function csvEscape(value: unknown) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadCsv(filename: string, rows: unknown[][]) {
+  const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 export function CfdAnalyzer() {
   const [symbolInput, setSymbolInput] = useState("EURUSD");
   const [symbol, setSymbol] = useState("EURUSD");
@@ -54,15 +75,19 @@ export function CfdAnalyzer() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"ALL" | "LONG" | "SHORT">("ALL");
+  const [historyRange, setHistoryRange] = useState<"24h" | "5d">("24h");
+  const [favorites, setFavorites] = useState<string[]>(getCfdFavorites());
+  const [favoriteInput, setFavoriteInput] = useState("");
+  const [isEditingFavorites, setIsEditingFavorites] = useState(false);
   const [amount, setAmount] = useState("1000");
   const [leverage, setLeverage] = useState("1");
   const [side, setSide] = useState<"LONG" | "SHORT">("LONG");
 
-  const load = async (nextSymbol = symbol) => {
+  const load = async (nextSymbol = symbol, nextRange = historyRange) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/tradingview-cfd?symbol=${encodeURIComponent(nextSymbol)}`);
+      const response = await fetch(`/api/tradingview-cfd?symbol=${encodeURIComponent(nextSymbol)}&range=${nextRange}`);
       if (!response.ok) throw new Error(`Nie udało się pobrać danych TradingView (${response.status})`);
       const json = await response.json();
       setData(json);
@@ -74,8 +99,27 @@ export function CfdAnalyzer() {
   };
 
   useEffect(() => {
-    load(symbol);
-  }, [symbol]);
+    load(symbol, historyRange);
+  }, [symbol, historyRange]);
+
+  const persistFavorites = (nextFavorites: string[]) => {
+    setFavorites(nextFavorites);
+    saveCfdFavorites(nextFavorites);
+  };
+
+  const chooseSymbol = (nextSymbol: string) => {
+    const normalized = normalizeSymbol(nextSymbol);
+    if (!normalized) return;
+    setSymbolInput(normalized);
+    setSymbol(normalized);
+  };
+
+  const handleAddFavorite = () => {
+    const normalized = normalizeSymbol(favoriteInput);
+    if (!normalized || favorites.includes(normalized)) return;
+    persistFavorites([...favorites, normalized]);
+    setFavoriteInput("");
+  };
 
   const filteredHistory = useMemo(() => {
     if (!data) return [];
@@ -88,6 +132,14 @@ export function CfdAnalyzer() {
   const grossProfit = amountNumber * leverageNumber * (expectedMove / 100) * (side === data?.current?.direction ? 1 : side === "LONG" ? (data?.current?.longChance || 50) / 100 : (data?.current?.shortChance || 50) / 100);
   const riskMove = amountNumber * leverageNumber * Math.max(0.2, expectedMove * 0.65) / 100;
 
+  const exportHistoryCsv = () => {
+    if (!data) return;
+    downloadCsv(`${data.symbol}-sygnaly-${historyRange}.csv`, [
+      ["Symbol", "Nazwa", "Zakres", "Czas", "Kierunek", "Pewność %", "Szansa LONG %", "Szansa SHORT %", "Ruch oczekiwany %", "Cena odniesienia"],
+      ...filteredHistory.map((item) => [data.symbol, data.label, historyRange, item.time, item.direction, item.confidence, item.longChance, item.shortChance, item.expectedMovePct, item.close])
+    ]);
+  };
+
   return (
     <section className="flex flex-col gap-5">
       <div className="rounded-xl border border-border/40 bg-card p-4 md:p-5 shadow-sm">
@@ -98,7 +150,7 @@ export function CfdAnalyzer() {
               Analizy CFD
             </div>
             <p className="text-[13px] text-muted-foreground mt-1 max-w-2xl">
-              Moduł dla walut, surowców i indeksów oparty o wykres 1h z zakresem 5 dni oraz wskaźniki TradingView: HMA, RSI i EMA.
+              Moduł dla walut, surowców i indeksów oparty o wykres dzienny z zakresem 5 dni oraz wskaźniki TradingView: HMA, RSI i EMA.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
@@ -106,12 +158,12 @@ export function CfdAnalyzer() {
               value={symbolInput}
               onChange={(e) => setSymbolInput(e.target.value.toUpperCase())}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && symbolInput.trim()) setSymbol(symbolInput.trim().toUpperCase());
+                if (e.key === "Enter") chooseSymbol(symbolInput);
               }}
               className="h-10 bg-background/70 border-border/50 sm:w-48"
               placeholder="EURUSD, XAUUSD, DAX..."
             />
-            <Button onClick={() => symbolInput.trim() && setSymbol(symbolInput.trim().toUpperCase())} className="h-10">
+            <Button onClick={() => chooseSymbol(symbolInput)} className="h-10">
               Analizuj CFD
             </Button>
             <Button onClick={() => load()} variant="outline" className="h-10 border-border/50" disabled={loading}>
@@ -119,19 +171,55 @@ export function CfdAnalyzer() {
             </Button>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 mt-4">
-          {presets.map((item) => (
+
+        <div className="rounded-xl border border-border/40 bg-background/30 p-3 flex flex-col gap-3 mt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mr-1">
+              <Star className="h-3.5 w-3.5 text-amber-400" />
+              Ulubione CFD
+            </div>
+            {favorites.map((item) => (
+              <div key={item} className="group relative inline-flex items-center">
+                <button
+                  onClick={() => chooseSymbol(item)}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors ${symbol === item ? "border-primary bg-primary/15 text-primary" : "border-border/40 text-muted-foreground hover:border-primary hover:text-primary bg-transparent"}`}
+                >
+                  {item}
+                </button>
+                {isEditingFavorites && (
+                  <button
+                    onClick={() => persistFavorites(favorites.filter((favorite) => favorite !== item))}
+                    className="ml-1 rounded-full border border-border/50 bg-background/80 p-0.5 text-muted-foreground hover:text-red-400 hover:border-red-500/50"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            ))}
             <button
-              key={item}
-              onClick={() => {
-                setSymbolInput(item);
-                setSymbol(item);
-              }}
-              className={`rounded-full border px-3 py-1 text-[12px] transition-colors ${symbol === item ? "border-primary bg-primary/15 text-primary" : "border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/60"}`}
+              onClick={() => setIsEditingFavorites(!isEditingFavorites)}
+              className="ml-auto inline-flex items-center gap-1 rounded-md border border-border/50 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/60"
             >
-              {item}
+              {isEditingFavorites ? <Check className="h-3 w-3" /> : <Edit3 className="h-3 w-3" />}
+              {isEditingFavorites ? "Gotowe" : "Edytuj"}
             </button>
-          ))}
+          </div>
+          {isEditingFavorites && (
+            <div className="flex flex-col sm:flex-row gap-2 border-t border-border/40 pt-3">
+              <Input
+                value={favoriteInput}
+                onChange={(e) => setFavoriteInput(e.target.value.toUpperCase())}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddFavorite();
+                }}
+                placeholder="Dodaj ticker CFD, np. EURUSD, USOIL, DAX"
+                className="h-9 bg-background/60 border-border/50 text-sm"
+              />
+              <Button onClick={handleAddFavorite} disabled={!favoriteInput.trim()} size="sm" className="h-9">
+                Dodaj do ulubionych
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -142,7 +230,7 @@ export function CfdAnalyzer() {
       {data && (
         <>
           <div className="grid grid-cols-1 xl:grid-cols-[1.35fr_0.9fr] gap-5">
-            <TradingViewMiniChart symbol={data.tvSymbol} interval="60" range="5D" height={420} title={`${data.label} — wykres 1h / 5 dni`} />
+            <TradingViewMiniChart symbol={data.tvSymbol} interval="D" range="5D" height={420} title={`${data.label} — wykres 1D / 5 dni`} />
 
             <div className="rounded-xl border border-border/40 bg-card p-4 md:p-5 flex flex-col gap-4">
               <div className="flex items-start justify-between gap-3">
@@ -164,7 +252,7 @@ export function CfdAnalyzer() {
                   <div className="text-2xl font-bold text-red-300">{data.current.shortChance}%</div>
                 </div>
                 <div className="rounded-lg border border-border/40 bg-muted/20 p-3">
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">RSI 1h</div>
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">RSI 1D</div>
                   <div className="text-lg font-bold">{Number(data.current.rsi || 0).toFixed(1)}</div>
                 </div>
                 <div className="rounded-lg border border-border/40 bg-muted/20 p-3">
@@ -181,17 +269,28 @@ export function CfdAnalyzer() {
 
           <div className="grid grid-cols-1 xl:grid-cols-[1fr_0.85fr] gap-5">
             <div className="rounded-xl border border-border/40 bg-card p-4 md:p-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                <div>
-                  <div className="flex items-center gap-2 font-semibold"><Filter className="h-4 w-4 text-primary" /> Historyczne sygnały z ostatnich 24h</div>
-                  <div className="text-[12px] text-muted-foreground mt-1">Filtruj potencjalne wejścia short i long.</div>
+              <div className="flex flex-col gap-3 mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 font-semibold"><Filter className="h-4 w-4 text-primary" /> Historyczne sygnały {historyRange === "24h" ? "z ostatnich 24h" : "z ostatnich 5 dni"}</div>
+                    <div className="text-[12px] text-muted-foreground mt-1">Filtruj potencjalne wejścia short i long oraz eksportuj wynik do CSV.</div>
+                  </div>
+                  <Button onClick={exportHistoryCsv} variant="outline" size="sm" className="h-8 border-border/50 text-xs w-fit">
+                    <Download className="h-3.5 w-3.5 mr-1.5" /> Pobierz CSV
+                  </Button>
                 </div>
-                <div className="flex rounded-lg border border-border/50 overflow-hidden w-fit">
-                  {["ALL", "LONG", "SHORT"].map((item) => (
-                    <button key={item} onClick={() => setFilter(item as any)} className={`px-3 py-1.5 text-[12px] ${filter === item ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/60"}`}>
-                      {item === "ALL" ? "Wszystkie" : item}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap gap-2 justify-between">
+                  <div className="flex rounded-lg border border-border/50 overflow-hidden w-fit">
+                    {["ALL", "LONG", "SHORT"].map((item) => (
+                      <button key={item} onClick={() => setFilter(item as any)} className={`px-3 py-1.5 text-[12px] ${filter === item ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/60"}`}>
+                        {item === "ALL" ? "Wszystkie" : item}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex rounded-lg border border-border/50 overflow-hidden w-fit">
+                    <button onClick={() => setHistoryRange("24h")} className={`px-3 py-1.5 text-[12px] ${historyRange === "24h" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/60"}`}>24h</button>
+                    <button onClick={() => setHistoryRange("5d")} className={`px-3 py-1.5 text-[12px] ${historyRange === "5d" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/60"}`}>5 dni</button>
+                  </div>
                 </div>
               </div>
               <div className="grid gap-2">
